@@ -1,3 +1,6 @@
 [submodule "MSPR1.EPSI-FastAPI"]
 	path = MSPR1.EPSI-FastAPI
 	url = https://github.com/enzomtpYT/MSPR1.EPSI-FastAPI.git
+[submodule "frontmspr"]
+	path = frontmspr
+	url = https://github.com/Naimau-del/frontmspr.git
