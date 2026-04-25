@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 
+# This schema outlines the expected structure for incoming daily food payloads.
+# It uses aliases to map raw JSON fields (which might contain spaces) to clean Python attributes.
 class DailyFoodRow(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     Food_Item: str = Field(alias="Food_Item")
@@ -15,6 +17,7 @@ class DailyFoodRow(BaseModel):
     Category: Optional[str] = Field(None, alias="Category")
     Meal_Type: Optional[str] = Field(None, alias="Meal_Type")
 
+# This schema defines the structure for dietary recommendation payloads.
 class DietRecRow(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     Patient_ID: str = Field(alias="Patient_ID")
@@ -26,6 +29,7 @@ class DietRecRow(BaseModel):
     Dietary_Restrictions: Optional[str] = Field(None, alias="Dietary_Restrictions")
     Diet_Recommendation: Optional[str] = Field(None, alias="Diet_Recommendation")
 
+# This schema is used for mapping exercise data imports.
 class ExerciseRow(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     Age: int = Field(alias="Age")
