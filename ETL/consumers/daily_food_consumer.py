@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import logging
+from datetime import datetime
 import psycopg2
 from pydantic import ValidationError
 
@@ -30,17 +31,18 @@ def process_message(ch, method, properties, body):
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
+        now = datetime.utcnow()
         
         cur.execute("""
             INSERT INTO products (
                 product_name, product_kcal, product_protein, product_carbs, 
                 product_fat, product_fiber, product_sugar, product_sodium, 
-                product_chol, "Product_Diet_Tags", "Product_Price_Category"
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                product_chol, "Product_Diet_Tags", "Product_Price_Category", created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             row.Food_Item, row.Calories, row.Protein, row.Carbohydrates,
             row.Fat, row.Fiber, row.Sugars, row.Sodium, row.Cholesterol,
-            row.Category, row.Meal_Type
+            row.Category, row.Meal_Type, now, now
         ))
         
         conn.commit()

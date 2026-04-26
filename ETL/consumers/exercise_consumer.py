@@ -31,15 +31,16 @@ def process_message(ch, method, properties, body):
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
+        now = datetime.utcnow()
         
         user_mail = f"tracker_{uuid.uuid4().hex[:8]}@etl.local"
         logger.info(f"Registering new tracker user: {user_mail}")
         
         cur.execute("""
             INSERT INTO users (
-                "User_mail", "User_password", "User_age", "User_gender", "User_weight", "User_Height"
-            ) VALUES (%s, %s, %s, %s, %s, %s) RETURNING "User_ID"
-        """, (user_mail, "ETL_GENERATED_PASSWORD", row.Age, row.Gender, row.Weight, row.Height))
+                "User_mail", "User_password", "User_age", "User_gender", "User_weight", "User_Height", created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING "User_ID"
+        """, (user_mail, "ETL_GENERATED_PASSWORD", row.Age, row.Gender, row.Weight, row.Height, now, now))
         
         user_id = cur.fetchone()[0]
         
@@ -49,15 +50,15 @@ def process_message(ch, method, properties, body):
         cur.execute("""
             INSERT INTO workout_sessions (
                 "User_ID", "Session_Date", "Session_MaxBpm", "Session_AvgBpm", 
-                "Session_RestingBpm", "Session_Duration", "Session_Type"
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (user_id, today, row.Max_BPM, row.Avg_BPM, row.Resting_BPM, duration_minutes, row.Workout_Type))
+                "Session_RestingBpm", "Session_Duration", "Session_Type", created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (user_id, today, row.Max_BPM, row.Avg_BPM, row.Resting_BPM, duration_minutes, row.Workout_Type, now, now))
         
         cur.execute("""
             INSERT INTO biometrics_logs (
-                "User_ID", "Log_Date", "Weight", "Heart_Rate"
-            ) VALUES (%s, %s, %s, %s)
-        """, (user_id, today, row.Weight, row.Avg_BPM))
+                "User_ID", "Log_Date", "Weight", "Heart_Rate", created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+        """, (user_id, today, row.Weight, row.Avg_BPM, now, now))
 
         conn.commit()
         cur.close()

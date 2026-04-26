@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import logging
+from datetime import datetime
 import psycopg2
 from pydantic import ValidationError
 
@@ -30,6 +31,7 @@ def process_message(ch, method, properties, body):
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
+        now = datetime.utcnow()
         
         user_mail = f"patient_{row.Patient_ID}@etl.local"
         height = row.Height_cm / 100.0 if row.Height_cm > 3.0 else row.Height_cm
@@ -42,12 +44,12 @@ def process_message(ch, method, properties, body):
             cur.execute("""
                 INSERT INTO users (
                     "User_mail", "User_password", "User_age", "User_gender", "User_weight", 
-                    "User_Height", "User_Allergies", "User_Dietary_Preferences", "User_Goals"
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    "User_Height", "User_Allergies", "User_Dietary_Preferences", "User_Goals", created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 user_mail, "ETL_GENERATED_PASSWORD", row.Age, row.Gender, 
                 row.Weight_kg, height, row.Allergies, 
-                row.Dietary_Restrictions, row.Diet_Recommendation
+                row.Dietary_Restrictions, row.Diet_Recommendation, now, now
             ))
         else:
             logger.info(f"User {user_mail} found. Updating existing records.")
@@ -55,11 +57,11 @@ def process_message(ch, method, properties, body):
                 UPDATE users 
                 SET "User_age" = %s, "User_gender" = %s, "User_weight" = %s, 
                     "User_Height" = %s, "User_Allergies" = %s, "User_Dietary_Preferences" = %s, 
-                    "User_Goals" = %s 
+                    "User_Goals" = %s, updated_at = %s
                 WHERE "User_mail" = %s
             """, (
                 row.Age, row.Gender, row.Weight_kg, height, row.Allergies, 
-                row.Dietary_Restrictions, row.Diet_Recommendation, user_mail
+                row.Dietary_Restrictions, row.Diet_Recommendation, now, user_mail
             ))
 
         conn.commit()
