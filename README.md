@@ -17,6 +17,7 @@ Ce depot est la racine d'orchestration de tous les services.
 - Vue d'ensemble du projet
 - Ce que fait l'application
 - Architecture
+- Modele conceptuel de donnees (MCD)
 - Stack technique
 - Structure du repository
 - Prerequis
@@ -73,6 +74,16 @@ Backend FastAPI (/api/v0)
    v                      v
 PostgreSQL <--------- RabbitMQ ---------> ETL Worker (3 consumers)
 ```
+
+## Modele conceptuel de donnees (MCD)
+
+Le schema Merise du domaine metier (utilisateurs, produits, equipements, logs nutrition/exercice/biometrie) est disponible ci-dessous:
+
+![MCD HealthAI Coach](MSPR1.EPSI-FastAPI/docs/MeriseMCD.png)
+
+Fichier source:
+
+- `MSPR1.EPSI-FastAPI/docs/MeriseMCD.png`
 
 Services definis dans docker-compose:
 
