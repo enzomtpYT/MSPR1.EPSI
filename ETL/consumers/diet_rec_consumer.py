@@ -34,15 +34,15 @@ def process_message(ch, method, properties, body):
         user_mail = f"patient_{row.Patient_ID}@etl.local"
         height = row.Height_cm / 100.0 if row.Height_cm > 3.0 else row.Height_cm
         
-        cur.execute("SELECT user_id FROM users WHERE user_mail = %s", (user_mail,))
+        cur.execute('SELECT "User_ID" FROM users WHERE "User_mail" = %s', (user_mail,))
         user_record = cur.fetchone()
 
         if not user_record:
             logger.info(f"User {user_mail} not found. Creating new user.")
             cur.execute("""
                 INSERT INTO users (
-                    user_mail, user_password, user_age, user_gender, user_weight, 
-                    user_height, user_allergies, user_dietary_preferences, user_goals
+                    "User_mail", "User_password", "User_age", "User_gender", "User_weight", 
+                    "User_Height", "User_Allergies", "User_Dietary_Preferences", "User_Goals"
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 user_mail, "ETL_GENERATED_PASSWORD", row.Age, row.Gender, 
@@ -53,10 +53,10 @@ def process_message(ch, method, properties, body):
             logger.info(f"User {user_mail} found. Updating existing records.")
             cur.execute("""
                 UPDATE users 
-                SET user_age = %s, user_gender = %s, user_weight = %s, 
-                    user_height = %s, user_allergies = %s, user_dietary_preferences = %s, 
-                    user_goals = %s 
-                WHERE user_mail = %s
+                SET "User_age" = %s, "User_gender" = %s, "User_weight" = %s, 
+                    "User_Height" = %s, "User_Allergies" = %s, "User_Dietary_Preferences" = %s, 
+                    "User_Goals" = %s 
+                WHERE "User_mail" = %s
             """, (
                 row.Age, row.Gender, row.Weight_kg, height, row.Allergies, 
                 row.Dietary_Restrictions, row.Diet_Recommendation, user_mail

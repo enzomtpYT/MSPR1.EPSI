@@ -35,7 +35,7 @@ def process_message(ch, method, properties, body):
             INSERT INTO products (
                 product_name, product_kcal, product_protein, product_carbs, 
                 product_fat, product_fiber, product_sugar, product_sodium, 
-                product_chol, product_diet_tags, product_price_category
+                product_chol, "Product_Diet_Tags", "Product_Price_Category"
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             row.Food_Item, row.Calories, row.Protein, row.Carbohydrates,

@@ -37,8 +37,8 @@ def process_message(ch, method, properties, body):
         
         cur.execute("""
             INSERT INTO users (
-                user_mail, user_password, user_age, user_gender, user_weight, user_height
-            ) VALUES (%s, %s, %s, %s, %s, %s) RETURNING user_id
+                "User_mail", "User_password", "User_age", "User_gender", "User_weight", "User_Height"
+            ) VALUES (%s, %s, %s, %s, %s, %s) RETURNING "User_ID"
         """, (user_mail, "ETL_GENERATED_PASSWORD", row.Age, row.Gender, row.Weight, row.Height))
         
         user_id = cur.fetchone()[0]
@@ -48,14 +48,14 @@ def process_message(ch, method, properties, body):
 
         cur.execute("""
             INSERT INTO workout_sessions (
-                user_id, session_date, session_maxbpm, session_avgbpm, 
-                session_restingbpm, session_duration, session_type
+                "User_ID", "Session_Date", "Session_MaxBpm", "Session_AvgBpm", 
+                "Session_RestingBpm", "Session_Duration", "Session_Type"
             ) VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (user_id, today, row.Max_BPM, row.Avg_BPM, row.Resting_BPM, duration_minutes, row.Workout_Type))
         
         cur.execute("""
             INSERT INTO biometrics_logs (
-                user_id, log_date, weight, heart_rate
+                "User_ID", "Log_Date", "Weight", "Heart_Rate"
             ) VALUES (%s, %s, %s, %s)
         """, (user_id, today, row.Weight, row.Avg_BPM))
 
