@@ -44,12 +44,12 @@ def process_message(ch, method, properties, body):
             cur.execute("""
                 INSERT INTO users (
                     "User_mail", "User_password", "User_age", "User_gender", "User_weight", 
-                    "User_Height", "User_Allergies", "User_Dietary_Preferences", "User_Goals", created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    "User_Height", "User_Allergies", "User_Dietary_Preferences", "User_Goals", "isAdmin", created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 user_mail, "ETL_GENERATED_PASSWORD", row.Age, row.Gender, 
                 row.Weight_kg, height, row.Allergies, 
-                row.Dietary_Restrictions, row.Diet_Recommendation, now, now
+                row.Dietary_Restrictions, row.Diet_Recommendation, False, now, now
             ))
         else:
             logger.info(f"User {user_mail} found. Updating existing records.")

@@ -38,9 +38,9 @@ def process_message(ch, method, properties, body):
         
         cur.execute("""
             INSERT INTO users (
-                "User_mail", "User_password", "User_age", "User_gender", "User_weight", "User_Height", created_at, updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING "User_ID"
-        """, (user_mail, "ETL_GENERATED_PASSWORD", row.Age, row.Gender, row.Weight, row.Height, now, now))
+                "User_mail", "User_password", "User_age", "User_gender", "User_weight", "User_Height", "isAdmin", created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING "User_ID"
+        """, (user_mail, "ETL_GENERATED_PASSWORD", row.Age, row.Gender, row.Weight, row.Height, False, now, now))
         
         user_id = cur.fetchone()[0]
         
