@@ -1,86 +1,74 @@
 import pika
 import json
 import os
+import sys
 import uuid
 import logging
+import psycopg2
 from datetime import datetime, timezone
 from pydantic import ValidationError
-from src.database import SessionLocal
-from src.models.user import User
-from src.models.workout_session import WorkoutSession
-from src.models.biometrics_log import BiometricsLog
-from src.etl.schemas import ExerciseRow
 
-# Configure logging for this consumer
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from schemas import ExerciseRow
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://rabbit:rabbit_password@rabbitmq:5672/")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@database:5432/etl_db")
 
 def process_message(ch, method, properties, body):
     logger.info("Received message from exercise_queue.")
     try:
         data = json.loads(body)
         row = ExerciseRow(**data)
-        logger.debug("Exercise message parsed successfully.")
     except (ValidationError, json.JSONDecodeError) as e:
         logger.error(f"Message parsing failed: {e}")
         ch.basic_ack(delivery_tag=method.delivery_tag)
         return
 
-    db = SessionLocal()
+    conn = None
     try:
-        # Generate a unique email for tracker data mapping
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
         user_mail = f"tracker_{uuid.uuid4().hex[:8]}@etl.local"
         logger.info(f"Registering new tracker user: {user_mail}")
         
-        user = User(
-            User_mail=user_mail,
-            User_password="ETL_GENERATED_PASSWORD",
-            User_age=row.Age,
-            User_gender=row.Gender,
-            User_weight=row.Weight,
-            User_Height=row.Height
-        )
-        db.add(user)
-        db.commit()
-        # Refresh to obtain the generated User_ID
-        db.refresh(user)
-
-        # Convert hours to minutes for standard session tracking
+        cur.execute("""
+            INSERT INTO users (
+                user_mail, user_password, user_age, user_gender, user_weight, user_height
+            ) VALUES (%s, %s, %s, %s, %s, %s) RETURNING user_id
+        """, (user_mail, "ETL_GENERATED_PASSWORD", row.Age, row.Gender, row.Weight, row.Height))
+        
+        user_id = cur.fetchone()[0]
+        
         duration_minutes = int(row.Session_Duration * 60)
         today = datetime.now(timezone.utc).date()
 
-        # Create a new workout session record
-        session = WorkoutSession(
-            User_ID=user.User_ID,
-            Session_Date=today,
-            Session_MaxBpm=row.Max_BPM,
-            Session_AvgBpm=row.Avg_BPM,
-            Session_RestingBpm=row.Resting_BPM,
-            Session_Duration=duration_minutes,
-            Session_Type=row.Workout_Type
-        )
-        db.add(session)
-        logger.debug(f"Workout session added for User_ID: {user.User_ID}")
+        cur.execute("""
+            INSERT INTO workout_sessions (
+                user_id, session_date, session_maxbpm, session_avgbpm, 
+                session_restingbpm, session_duration, session_type
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (user_id, today, row.Max_BPM, row.Avg_BPM, row.Resting_BPM, duration_minutes, row.Workout_Type))
+        
+        cur.execute("""
+            INSERT INTO biometrics_logs (
+                user_id, log_date, weight, heart_rate
+            ) VALUES (%s, %s, %s, %s)
+        """, (user_id, today, row.Weight, row.Avg_BPM))
 
-        # Create a biometrics log entry
-        biometrics = BiometricsLog(
-            User_ID=user.User_ID,
-            Log_Date=today,
-            Weight=row.Weight,
-            Heart_Rate=row.Avg_BPM
-        )
-        db.add(biometrics)
-        logger.debug(f"Biometrics log added for User_ID: {user.User_ID}")
-
-        db.commit()
-        logger.info(f"Successfully processed exercise data for user {user.User_ID}.")
+        conn.commit()
+        cur.close()
+        logger.info(f"Successfully processed exercise data for user {user_id}.")
     except Exception as e:
-        db.rollback()
+        if conn is not None:
+            conn.rollback()
         logger.error(f"Database error while saving exercise data: {e}", exc_info=True)
     finally:
-        db.close()
+        if conn is not None:
+            conn.close()
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
 def start():
@@ -91,7 +79,6 @@ def start():
         channel.queue_declare(queue="exercise_queue", durable=True)
         channel.basic_qos(prefetch_count=10)
         channel.basic_consume(queue="exercise_queue", on_message_callback=process_message)
-        
         logger.info("Connected to RabbitMQ. Waiting for messages on exercise_queue.")
         channel.start_consuming()
     except Exception as e:

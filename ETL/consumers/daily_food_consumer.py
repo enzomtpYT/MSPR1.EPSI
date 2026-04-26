@@ -1,73 +1,68 @@
 import pika
 import json
 import os
+import sys
 import logging
+import psycopg2
 from pydantic import ValidationError
-from src.database import SessionLocal
-from src.models.product import Product
-from src.etl.schemas import DailyFoodRow
 
-# Configure logging for this consumer
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from schemas import DailyFoodRow
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://rabbit:rabbit_password@rabbitmq:5672/")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@database:5432/etl_db")
 
 def process_message(ch, method, properties, body):
     logger.info("Received message from daily_food_queue.")
     try:
-        # Parse and validate the incoming JSON message
         data = json.loads(body)
         row = DailyFoodRow(**data)
         logger.debug(f"Message parsed successfully for food item: {row.Food_Item}")
     except (ValidationError, json.JSONDecodeError) as e:
         logger.error(f"Failed to parse or validate message: {e}")
-        # Acknowledge the message so it doesn't get stuck in the queue
         ch.basic_ack(delivery_tag=method.delivery_tag)
         return
 
-    db = SessionLocal()
+    conn = None
     try:
-        # Map the validated data to the Product ORM model
-        product = Product(
-            product_name=row.Food_Item,
-            product_kcal=row.Calories,
-            product_protein=row.Protein,
-            product_carbs=row.Carbohydrates,
-            product_fat=row.Fat,
-            product_fiber=row.Fiber,
-            product_sugar=row.Sugars,
-            product_sodium=row.Sodium,
-            product_chol=row.Cholesterol,
-            Product_Diet_Tags=row.Category,
-            Product_Price_Category=row.Meal_Type
-        )
-        # Persist the new product to the database
-        db.add(product)
-        db.commit()
-        logger.info(f"Product '{row.Food_Item}' successfully saved to database.")
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        cur.execute("""
+            INSERT INTO products (
+                product_name, product_kcal, product_protein, product_carbs, 
+                product_fat, product_fiber, product_sugar, product_sodium, 
+                product_chol, product_diet_tags, product_price_category
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            row.Food_Item, row.Calories, row.Protein, row.Carbohydrates,
+            row.Fat, row.Fiber, row.Sugars, row.Sodium, row.Cholesterol,
+            row.Category, row.Meal_Type
+        ))
+        
+        conn.commit()
+        cur.close()
+        logger.info(f"Product '{row.Food_Item}' successfully saved to database container.")
     except Exception as e:
-        # Roll back the transaction if any database error occurs
-        db.rollback()
+        if conn is not None:
+            conn.rollback()
         logger.error(f"Database error while saving product '{row.Food_Item}': {e}", exc_info=True)
     finally:
-        # Ensure database resources are released and message is acknowledged
-        db.close()
+        if conn is not None:
+            conn.close()
         ch.basic_ack(delivery_tag=method.delivery_tag)
-        logger.debug("Database session closed and message acknowledged.")
 
 def start():
     logger.info("Starting daily_food_consumer...")
     try:
-        # Establish connection to the RabbitMQ server
         connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
         channel = connection.channel()
         channel.queue_declare(queue="daily_food_queue", durable=True)
-        
-        # Configure quality of service to prevent overloading the consumer
         channel.basic_qos(prefetch_count=10)
         channel.basic_consume(queue="daily_food_queue", on_message_callback=process_message)
-        
         logger.info("Connected to RabbitMQ. Waiting for messages on daily_food_queue.")
         channel.start_consuming()
     except Exception as e:
