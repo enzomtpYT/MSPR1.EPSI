@@ -1,0 +1,50 @@
+services:
+
+  # ─────────────────── MongoDB – stockage des recommandations ─────────────
+  mongodb:
+    image: mongo:7
+    container_name: healthai_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: healthai_recommendations
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────── AI Microservice ────────────────────────────────────
+  ai-microservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: healthai_ai
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Override uniquement si besoin dans Docker
+      MONGO_URL: mongodb://mongodb:27017
+      CORS_ORIGINS: "http://localhost,http://localhost:80,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
+      POSTGRES_URL: "postgresql://admin:password@database:5432/etl_db"
+    networks:
+      - default
+      - mspr_network
+
+volumes:
+  mongo_data:
+  artifacts:
+
+networks:
+  default:
+  mspr_network:
+    external: true
+    name: mspr2epsi-main_default

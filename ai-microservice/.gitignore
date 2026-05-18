@@ -1,0 +1,21 @@
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.egg-info/
+dist/
+build/
+
+# pytest
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
