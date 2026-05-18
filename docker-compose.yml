@@ -96,8 +96,55 @@ services:
       - VITE_API_URL=${VITE_API_URL:-http://localhost:8000/api/v0}
       - VITE_APP_NAME=${VITE_APP_NAME:-HealthAI Coach}
 
+  # MongoDB for AI microservice
+  mongodb:
+    image: mongo:7
+    container_name: healthai_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-healthai_recommendations}
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # AI Microservice (Vision / Nutrition)
+  ai-microservice:
+    build:
+      context: ./ai-microservice
+      dockerfile: Dockerfile
+    container_name: mspr_ai_microservice
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    env_file: .env
+    environment:
+      MONGO_URL: mongodb://mongodb:27017
+      MONGO_DB: ${MONGO_DB:-healthai_recommendations}
+      CORS_ORIGINS: "http://localhost,http://localhost:80,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
+      POSTGRES_URL: ${POSTGRES_URL:-postgresql://admin:password@database:5432/etl_db}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ai_artifacts:/app/artifacts
+
 volumes:
   postgres_data:
     name: mspr_postgres_data
   rabbitmq_data:
     name: mspr_rabbitmq_data
+  mongo_data:
+    name: mspr_mongo_data
+  ai_artifacts:
+    name: mspr_ai_artifacts

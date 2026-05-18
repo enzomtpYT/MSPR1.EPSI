@@ -41,5 +41,10 @@ class Settings:
         self.HF_API_KEY: str = os.getenv("HF_API_KEY", "")
         self.HF_MODEL: str = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
 
+        # Mistral Vision API
+        self.MISTRAL_API_KEY: str = os.getenv("MISTRAL_API_KEY", "")
+        self.MISTRAL_API_URL: str = "https://api.mistral.ai/v1/chat/completions"
+        self.MISTRAL_MODEL: str = os.getenv("MISTRAL_MODEL", "pixtral-12b-2409")
+
 
 settings = Settings()

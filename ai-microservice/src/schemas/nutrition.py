@@ -30,6 +30,9 @@ class NutritionRequest(BaseModel):
     use_llm_enhancement: bool = Field(
         False, description="Enrichir la réponse via le LLM (Ollama/HuggingFace)"
     )
+    meal_image_base64: Optional[str] = Field(
+        None, description="Image du repas encodée en base64 (sans préfixe data:image). Optionnel."
+    )
 
 
 # ──────────────────────────── Sortie – recommandation ──────────────────────
@@ -61,6 +64,12 @@ class NutritionResponse(BaseModel):
     deficit_warnings: list[str] = Field(default_factory=list)
     excess_warnings: list[str] = Field(default_factory=list)
     llm_advice: Optional[str] = None
+    detected_foods: Optional[list[str]] = Field(
+        None, description="Aliments détectés si une image de repas a été fournie"
+    )
+    detected_macros: Optional[dict] = Field(
+        None, description="Macros estimées depuis l'image (calories, protein, carbs, fat en g)"
+    )
     model_version: str
     generated_at: datetime
 

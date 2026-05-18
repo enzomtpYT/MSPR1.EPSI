@@ -29,7 +29,7 @@ from src.schemas.nutrition import (
     NutritionRequest,
     NutritionResponse,
 )
-from src.services.llm_service import enhance_nutrition_recommendation
+from src.services.llm_service import enhance_nutrition_recommendation, analyze_meal_image
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +219,22 @@ async def get_nutrition_recommendation(
     # 5. Déséquilibres
     deficits, excesses = _detect_imbalances(meal_plan, macro_targets)
 
-    # 6. LLM (optionnel)
+    # 6. Vision – Analyse de l'image du repas (optionnel)
+    detected_foods: Optional[list[str]] = None
+    detected_macros: Optional[dict] = None
+    if request.meal_image_base64:
+        vision_result = await analyze_meal_image(request.meal_image_base64)
+        if vision_result:
+            detected_foods = vision_result.get("foods", [])
+            detected_macros = {
+                "estimated_calories": vision_result.get("estimated_calories"),
+                "estimated_protein": vision_result.get("estimated_protein"),
+                "estimated_carbs": vision_result.get("estimated_carbs"),
+                "estimated_fat": vision_result.get("estimated_fat"),
+            }
+            logger.info(f"Aliments détectés : {detected_foods}")
+
+    # 7. LLM (optionnel)
     llm_advice = None
     if request.use_llm_enhancement:
         llm_advice = await enhance_nutrition_recommendation(
@@ -229,7 +244,7 @@ async def get_nutrition_recommendation(
             carbs_g=preds["carbs_g"], fat_g=preds["fat_g"],
         )
 
-    # 7. Persistance MongoDB
+    # 8. Persistance MongoDB
     rec_id = str(uuid.uuid4())
     now    = datetime.now(timezone.utc)
     await mongo["nutrition_recommendations"].insert_one({
@@ -239,6 +254,8 @@ async def get_nutrition_recommendation(
         "meal_plan":      [i.model_dump() for i in meal_plan],
         "deficit_warnings": deficits,
         "excess_warnings":  excesses,
+        "detected_foods":   detected_foods,
+        "detected_macros":  detected_macros,
         "model_version":  model.version,
         "generated_at":   now,
     })
@@ -251,6 +268,8 @@ async def get_nutrition_recommendation(
         deficit_warnings = deficits,
         excess_warnings  = excesses,
         llm_advice       = llm_advice,
+        detected_foods   = detected_foods,
+        detected_macros  = detected_macros,
         model_version    = model.version,
         generated_at     = now,
     )

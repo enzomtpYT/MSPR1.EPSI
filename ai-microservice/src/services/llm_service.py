@@ -141,3 +141,74 @@ async def enhance_workout_recommendation(
         duration_min=duration_min,
     )
     return await _call_llm(prompt)
+
+
+# ──────────────────────── Mistral Vision API ──────────────────────────────
+
+import json
+from typing import Any
+
+_MEAL_ANALYSIS_PROMPT = """Analyse cette image de repas. Liste les aliments présents et estime les calories totales ainsi que la répartition des macronutriments (Protéines, Glucides, Lipides). Réponds au format JSON avec les clés exactes: foods (liste de strings), estimated_calories (nombre), estimated_protein (nombre en g), estimated_carbs (nombre en g), estimated_fat (nombre en g). Réponse JSON uniquement, pas d'autre texte."""
+
+
+async def analyze_meal_image(image_base64: str) -> Optional[dict[str, Any]]:
+    """
+    Analyse une image de repas via l'API Mistral Vision (Pixtral).
+    
+    Args:
+        image_base64: La donnée base64 de l'image (sans préfixe data:image/...)
+    
+    Returns:
+        Dict contenant: foods, estimated_calories, estimated_protein, estimated_carbs, estimated_fat
+        None si la requête échoue.
+    """
+    if not settings.MISTRAL_API_KEY:
+        logger.warning("MISTRAL_API_KEY non configurée – vision désactivée.")
+        return None
+
+    url = settings.MISTRAL_API_URL
+    headers = {
+        "Authorization": f"Bearer {settings.MISTRAL_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": settings.MISTRAL_MODEL,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": _MEAL_ANALYSIS_PROMPT,
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_base64}",
+                        },
+                    },
+                ],
+            }
+        ],
+        "max_tokens": 500,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+
+            # Extraire le contenu de la réponse
+            if data.get("choices") and len(data["choices"]) > 0:
+                content = data["choices"][0].get("message", {}).get("content", "").strip()
+                # Parser JSON
+                parsed = json.loads(content)
+                return parsed
+    except json.JSONDecodeError as exc:
+        logger.warning("Mistral Vision : erreur de parsing JSON : %s", exc)
+        return None
+    except Exception as exc:
+        logger.warning("Mistral Vision API indisponible : %s", exc)
+        return None
