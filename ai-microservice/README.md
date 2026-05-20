@@ -128,7 +128,9 @@ Les recommandations générées sont stockées dans **MongoDB** (collections `nu
 Activez `use_llm_enhancement: true` dans la requête pour obtenir des conseils personnalisés rédigés par un LLM :
 
 - **Ollama** (défaut) : modèle local Mistral – `LLM_PROVIDER=ollama`
-- **Hugging Face** : `LLM_PROVIDER=huggingface` + `HF_API_KEY`
+- **Mistral Cloud API** : `LLM_PROVIDER=mistral` + `MISTRAL_API_KEY`
+
+Le service utilise également **Mistral Vision API** (`pixtral-12b-2409`) pour l'analyse d'images de repas.
 
 En cas d'indisponibilité du LLM, le service répond normalement avec les recommandations ML (fallback gracieux).
 

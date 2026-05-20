@@ -28,7 +28,7 @@ class NutritionRequest(BaseModel):
     budget_level: Optional[Literal["low", "medium", "high"]] = None
     nb_meals_per_day: int = Field(3, ge=1, le=6)
     use_llm_enhancement: bool = Field(
-        False, description="Enrichir la réponse via le LLM (Ollama/HuggingFace)"
+        False, description="Enrichir la réponse via le LLM (Ollama/Mistral)"
     )
     meal_image_base64: Optional[str] = Field(
         None, description="Image du repas encodée en base64 (sans préfixe data:image). Optionnel."

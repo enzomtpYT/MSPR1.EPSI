@@ -13,6 +13,7 @@ import logging
 from typing import Optional
 
 import httpx
+from mistralai import Mistral
 
 from src.config import settings
 
@@ -66,36 +67,34 @@ async def _call_ollama(prompt: str) -> Optional[str]:
         return None
 
 
-async def _call_huggingface(prompt: str) -> Optional[str]:
-    if not settings.HF_API_KEY:
-        logger.warning("HF_API_KEY non configurée – LLM désactivé.")
+async def _call_mistral(prompt: str) -> Optional[str]:
+    """Appelle l'API Mistral Cloud pour la génération de texte."""
+    if not settings.MISTRAL_API_KEY:
+        logger.warning("MISTRAL_API_KEY non configurée – LLM désactivé.")
         return None
 
-    url = f"https://api-inference.huggingface.co/models/{settings.HF_MODEL}"
-    headers = {"Authorization": f"Bearer {settings.HF_API_KEY}"}
-    # Format Instruction pour Mistral
-    formatted = f"<s>[INST] {prompt} [/INST]"
-    payload = {"inputs": formatted, "parameters": {"max_new_tokens": 300, "temperature": 0.7}}
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            data = response.json()
-            if isinstance(data, list) and data:
-                text = data[0].get("generated_text", "")
-                # Retirer le prompt de la réponse
-                if "[/INST]" in text:
-                    text = text.split("[/INST]", 1)[-1]
-                return text.strip() or None
+        async with Mistral(api_key=settings.MISTRAL_API_KEY) as client:
+            response = await client.chat.complete_async(
+                model=settings.MISTRAL_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=300,
+                temperature=0.7,
+            )
+            if response.choices and len(response.choices) > 0:
+                content = response.choices[0].message.content
+                if isinstance(content, str):
+                    text = content.strip()
+                    return text or None
     except Exception as exc:
-        logger.warning("Hugging Face API indisponible : %s", exc)
+        logger.warning("Mistral API indisponible : %s", exc)
         return None
 
 
 async def _call_llm(prompt: str) -> Optional[str]:
     """Appelle le fournisseur LLM configuré."""
-    if settings.LLM_PROVIDER == "huggingface":
-        return await _call_huggingface(prompt)
+    if settings.LLM_PROVIDER == "mistral":
+        return await _call_mistral(prompt)
     return await _call_ollama(prompt)
 
 
@@ -166,46 +165,37 @@ async def analyze_meal_image(image_base64: str) -> Optional[dict[str, Any]]:
         logger.warning("MISTRAL_API_KEY non configurée – vision désactivée.")
         return None
 
-    url = settings.MISTRAL_API_URL
-    headers = {
-        "Authorization": f"Bearer {settings.MISTRAL_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "model": settings.MISTRAL_MODEL,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": _MEAL_ANALYSIS_PROMPT,
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{image_base64}",
-                        },
-                    },
-                ],
-            }
-        ],
-        "max_tokens": 500,
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            data = response.json()
+        async with Mistral(api_key=settings.MISTRAL_API_KEY) as client:
+            response = await client.chat.complete_async(
+                model=settings.MISTRAL_MODEL,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": _MEAL_ANALYSIS_PROMPT,
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_base64}",
+                                },
+                            },
+                        ],
+                    }
+                ],
+                max_tokens=500,
+            )
 
             # Extraire le contenu de la réponse
-            if data.get("choices") and len(data["choices"]) > 0:
-                content = data["choices"][0].get("message", {}).get("content", "").strip()
-                # Parser JSON
-                parsed = json.loads(content)
-                return parsed
+            if response.choices and len(response.choices) > 0:
+                content = response.choices[0].message.content
+                if isinstance(content, str):
+                    # Parser JSON
+                    parsed = json.loads(content.strip())
+                    return parsed
     except json.JSONDecodeError as exc:
         logger.warning("Mistral Vision : erreur de parsing JSON : %s", exc)
         return None

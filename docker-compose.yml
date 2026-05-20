@@ -128,7 +128,11 @@ services:
       MONGO_DB: ${MONGO_DB:-healthai_recommendations}
       CORS_ORIGINS: "http://localhost,http://localhost:80,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
       POSTGRES_URL: ${POSTGRES_URL:-postgresql://admin:password@database:5432/etl_db}
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      OLLAMA_URL: ${OLLAMA_URL:-http://localhost:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-mistral}
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      MISTRAL_MODEL: ${MISTRAL_MODEL:-pixtral-12b-2409}
     depends_on:
       database:
         condition: service_healthy

@@ -34,12 +34,10 @@ class Settings:
         self.MODEL_DIR: Path = BASE_DIR / os.getenv("MODEL_DIR", "artifacts")
         self.MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
-        # LLM (Ollama local ou Hugging Face Inference API)
-        self.LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")  # "ollama" | "huggingface"
+        # LLM (Ollama local ou Mistral Cloud API)
+        self.LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")  # "ollama" | "mistral"
         self.OLLAMA_URL: str = os.getenv("OLLAMA_URL", "http://localhost:11434")
         self.OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "mistral")
-        self.HF_API_KEY: str = os.getenv("HF_API_KEY", "")
-        self.HF_MODEL: str = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
 
         # Mistral Vision API
         self.MISTRAL_API_KEY: str = os.getenv("MISTRAL_API_KEY", "")
