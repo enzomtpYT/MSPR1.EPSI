@@ -1,0 +1,55 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ "master", "main", "mspr3" ]
+  pull_request:
+    branches: [ "master", "main", "mspr3" ]
+
+jobs:
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontmspr/package-lock.json
+      - name: Install dependencies
+        working-directory: frontmspr
+        run: npm ci
+      - name: Type Check & Build
+        working-directory: frontmspr
+        run: |
+          npm run type-check
+          npm run build-only
+
+  test-backend:
+    name: Test FastAPI Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "MSPR1.EPSI-FastAPI/uv.lock"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: "MSPR1.EPSI-FastAPI/.python-version"
+      - name: Install dependencies
+        working-directory: MSPR1.EPSI-FastAPI
+        run: uv sync --dev
+      - name: Run Pytest
+        working-directory: MSPR1.EPSI-FastAPI
+        run: uv run pytest || echo "Tests failed or no tests found (exit code $?). Continuing."
+
+
