@@ -13,7 +13,7 @@ import logging
 from typing import Optional
 
 import httpx
-from mistralai import Mistral
+from mistralai.client import Mistral
 
 from src.config import settings
 
