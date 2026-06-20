@@ -1,0 +1,127 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "PostgreSQL – Active Connections",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "pg_stat_activity_count{job=\"postgres\"}", "legendFormat": "{{datname}} – {{state}}", "refId": "A" }
+      ]
+    },
+    {
+      "title": "PostgreSQL – Database Size",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "area", "colorMode": "value" },
+      "targets": [
+        { "expr": "pg_database_size_bytes{job=\"postgres\"}", "legendFormat": "{{datname}}", "refId": "A" }
+      ]
+    },
+    {
+      "title": "PostgreSQL – Transactions / s",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(pg_stat_database_xact_commit{job=\"postgres\"}[5m])", "legendFormat": "commits {{datname}}", "refId": "A" },
+        { "expr": "rate(pg_stat_database_xact_rollback{job=\"postgres\"}[5m])", "legendFormat": "rollbacks {{datname}}", "refId": "B" }
+      ]
+    },
+    {
+      "title": "PostgreSQL – Cache Hit Ratio",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.9 }, { "color": "green", "value": 0.95 }] } }, "overrides": [] },
+      "targets": [
+        { "expr": "pg_stat_database_blks_hit{job=\"postgres\",datname=\"etl_db\"} / (pg_stat_database_blks_hit{job=\"postgres\",datname=\"etl_db\"} + pg_stat_database_blks_read{job=\"postgres\",datname=\"etl_db\"})", "legendFormat": "etl_db", "refId": "A" }
+      ]
+    },
+    {
+      "title": "MongoDB – Connections Current",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "mongodb_ss_connections{conn_type=\"current\", job=\"mongodb\"}", "legendFormat": "Current connections", "refId": "A" },
+        { "expr": "mongodb_ss_connections{conn_type=\"available\", job=\"mongodb\"}", "legendFormat": "Available connections", "refId": "B" }
+      ]
+    },
+    {
+      "title": "MongoDB – Operations / s",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(mongodb_ss_opcounters{job=\"mongodb\"}[5m])", "legendFormat": "{{legacy_op_type}}", "refId": "A" }
+      ]
+    },
+    {
+      "title": "RabbitMQ – Queue Messages",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "rabbitmq_queue_messages{job=\"rabbitmq\"}", "legendFormat": "{{queue}} – total", "refId": "A" },
+        { "expr": "rabbitmq_queue_messages_ready{job=\"rabbitmq\"}", "legendFormat": "{{queue}} – ready", "refId": "B" },
+        { "expr": "rabbitmq_queue_messages_unacked{job=\"rabbitmq\"}", "legendFormat": "{{queue}} – unacked", "refId": "C" }
+      ]
+    },
+    {
+      "title": "RabbitMQ – Message Publish Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(rabbitmq_channel_messages_published_total{job=\"rabbitmq\"}[5m])", "legendFormat": "published / s", "refId": "A" },
+        { "expr": "rate(rabbitmq_channel_messages_delivered_total{job=\"rabbitmq\"}[5m])", "legendFormat": "delivered / s", "refId": "B" },
+        { "expr": "rate(rabbitmq_channel_messages_acked_total{job=\"rabbitmq\"}[5m])", "legendFormat": "acked / s", "refId": "C" }
+      ]
+    },
+    {
+      "title": "RabbitMQ – Connections & Channels",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 32 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "area", "colorMode": "value" },
+      "targets": [
+        { "expr": "rabbitmq_connections{job=\"rabbitmq\"}", "legendFormat": "Connections", "refId": "A" },
+        { "expr": "rabbitmq_channels{job=\"rabbitmq\"}", "legendFormat": "Channels", "refId": "B" },
+        { "expr": "rabbitmq_queues{job=\"rabbitmq\"}", "legendFormat": "Queues", "refId": "C" },
+        { "expr": "rabbitmq_consumers{job=\"rabbitmq\"}", "legendFormat": "Consumers", "refId": "D" }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["healthai", "databases", "rabbitmq"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "Databases & RabbitMQ",
+  "uid": "healthai-infra",
+  "version": 1
+}

@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from src.config import settings
 from src.database import close_mongo_connection
@@ -63,6 +64,8 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
+
+Instrumentator().instrument(app).expose(app)
 
 # CORS
 app.add_middleware(

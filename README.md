@@ -7,8 +7,11 @@ Elle regroupe:
 - Un frontend Vue.js pour les utilisateurs et les operations admin
 - Un backend FastAPI pour l'authentification, les API metier, les analytics et les exports
 - Un service ETL qui ingere des fichiers CSV de facon asynchrone via RabbitMQ
+- Un microservice IA (FastAPI) pour les recommandations nutritionnelles et sportives
 - Une base PostgreSQL pour la persistance des donnees
+- Une base MongoDB pour le stockage des recommandations IA
 - Un broker RabbitMQ pour decoupler l'ingestion et le traitement
+- Une stack d'observabilite complete (Prometheus + Grafana + cAdvisor + exporters)
 
 Ce depot est la racine d'orchestration de tous les services.
 
@@ -26,6 +29,7 @@ Ce depot est la racine d'orchestration de tous les services.
 - Setup local (sans stack Docker complete)
 - Flux d'import ETL
 - Utilisation de l'API et documentation
+- Monitoring et Observabilite
 - Tests
 - Depannage
 - Evolutions possibles
@@ -68,11 +72,25 @@ Navigateur (Vue 3 + Vite)
 Container Frontend (nginx)
         |
         v
-Backend FastAPI (/api/v0)
-   |                    \
-   | REST + SQLAlchemy   \ publication CSV vers RabbitMQ
-   v                      v
-PostgreSQL <--------- RabbitMQ ---------> ETL Worker (3 consumers)
+Backend FastAPI (/api/v0)              AI Microservice (/api/v1)
+   |                    \                    |
+   | REST + SQLAlchemy   \ pub CSV           | ML + LLM
+   v                      v                  v
+PostgreSQL <--------- RabbitMQ          MongoDB
+                          |
+                          v
+                    ETL Worker (3 consumers)
+
+─── Observabilite ───────────────────────────────────
+Prometheus  <──  cAdvisor (metriques Docker)
+            <──  postgres-exporter
+            <──  mongodb-exporter
+            <──  rabbitmq (plugin prometheus)
+            <──  backend /metrics
+            <──  ai-microservice /metrics
+     |
+     v
+  Grafana (dashboards pre-provisionnes)
 ```
 
 ## Modele conceptuel de donnees (MCD)
@@ -88,10 +106,17 @@ Fichier source:
 Services definis dans docker-compose:
 
 - database: PostgreSQL 15
-- rabbitmq: RabbitMQ 3.11 + interface de management
-- backend: service FastAPI
+- rabbitmq: RabbitMQ 3.11 + interface de management + plugin prometheus
+- backend: service FastAPI (expose /metrics)
 - etl-worker: worker Python avec 3 consumers
 - frontend: application Vue build avec Vite et servie par nginx
+- mongodb: MongoDB 7 pour le microservice IA
+- ai-microservice: FastAPI pour les recommandations IA (expose /metrics)
+- prometheus: collecte et stockage des metriques
+- grafana: dashboards de supervision (provisionnes automatiquement)
+- cadvisor: metriques de consommation des conteneurs Docker
+- postgres-exporter: exporteur de metriques PostgreSQL
+- mongodb-exporter: exporteur de metriques MongoDB
 
 Le frontend est deploye avec nginx en mode SPA: toutes les routes non statiques renvoient vers `index.html`, ce qui evite les 404 au rechargement sur `/login` ou toute autre route Vue.
 
@@ -132,6 +157,16 @@ Infra / DevOps:
 - nginx (runtime frontend)
 - uv (image/runtime Python dans les Dockerfiles)
 
+Monitoring / Observabilite:
+
+- Prometheus (collecte de metriques)
+- Grafana (visualisation et dashboards)
+- cAdvisor (metriques Docker / conteneurs)
+- postgres-exporter (metriques PostgreSQL)
+- mongodb-exporter (metriques MongoDB)
+- rabbitmq_prometheus (plugin natif RabbitMQ)
+- prometheus-fastapi-instrumentator (instrumentation FastAPI)
+
 ## Structure du repository
 
 ```text
@@ -157,10 +192,30 @@ MSPR1.EPSI/
 │   │   ├── router/
 │   │   └── test/
 │   └── docs/
-└── frontmspr/                       # Microservice frontend
-    ├── Dockerfile
-    ├── src/
-    └── package.json
+├── ai-microservice/                 # Microservice IA
+│   ├── Dockerfile
+│   └── src/
+│       ├── app.py
+│       ├── config.py
+│       ├── models/
+│       └── router/
+├── frontmspr/                       # Microservice frontend
+│   ├── Dockerfile
+│   ├── src/
+│   └── package.json
+└── monitoring/                      # Stack d'observabilite
+    ├── prometheus/
+    │   └── prometheus.yml           # Configuration scrape targets
+    └── grafana/
+        ├── provisioning/
+        │   ├── datasources/
+        │   │   └── datasource.yml   # Datasource Prometheus auto-provisionnee
+        │   └── dashboards/
+        │       └── dashboard.yml    # Provider de dashboards
+        └── dashboards/
+            ├── fastapi-services.json     # Dashboard FastAPI (backend + AI)
+            ├── docker-cadvisor.json      # Dashboard Docker / cAdvisor
+            └── databases-rabbitmq.json   # Dashboard PostgreSQL / MongoDB / RabbitMQ
 ```
 
 ## Prerequis
@@ -205,6 +260,7 @@ Variables principales:
 - DEFAULT_ADMIN_IS_ADMIN
 - VITE_API_URL
 - VITE_APP_NAME
+- GF_SECURITY_ADMIN_PASSWORD (mot de passe admin Grafana, defaut: admin)
 
 If DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD are set, the backend creates that user automatically at startup after migrations are applied. Leave them empty to disable automatic seeding.
 
@@ -229,7 +285,12 @@ docker compose up --build
 - Frontend: http://localhost
 - API backend: http://localhost:8000
 - Swagger: http://localhost:8000/docs
+- AI Microservice: http://localhost:8001
+- Swagger AI: http://localhost:8001/docs
 - RabbitMQ management: http://localhost:15672
+- Grafana: http://localhost:3000 (login: admin / mot de passe: voir GF_SECURITY_ADMIN_PASSWORD)
+- Prometheus: http://localhost:9090
+- cAdvisor: http://localhost:8080
 
 4. Initialiser le schema DB (premier lancement / changement schema):
 
@@ -356,6 +417,39 @@ Flux d'authentification:
 2. Se connecter via POST /api/v0/users/login
 3. Envoyer Authorization: Bearer <token> sur les routes protegees
 
+## Monitoring et Observabilite
+
+La stack de monitoring est deployee automatiquement avec `docker compose up`. Elle comprend:
+
+### Composants
+
+| Service | Role | Port |
+|---|---|---|
+| Prometheus | Collecte et stockage des metriques (scrape toutes les 15s) | 9090 |
+| Grafana | Dashboards de visualisation | 3000 |
+| cAdvisor | Metriques Docker (CPU, RAM, reseau, disque) | 8080 |
+| postgres-exporter | Metriques PostgreSQL (connexions, transactions, taille) | 9187 |
+| mongodb-exporter | Metriques MongoDB (connexions, operations) | 9216 |
+| RabbitMQ plugin | Metriques files de messages (plugin natif rabbitmq_prometheus) | 15692 |
+
+### Dashboards pre-provisionnes
+
+Trois dashboards Grafana sont disponibles des le premier demarrage :
+
+1. **FastAPI Services** : Sante des services, taux de requetes, latence p95, requetes en cours, taille des reponses.
+2. **Docker Containers (cAdvisor)** : CPU, memoire, reseau et utilisation disque par conteneur.
+3. **Databases & RabbitMQ** : Connexions PostgreSQL, taille des bases, transactions/s, cache hit ratio, connexions MongoDB, operations MongoDB, profondeur des files RabbitMQ, debit de messages.
+
+### Instrumentation des API
+
+Les deux services FastAPI (backend et ai-microservice) exposent leurs metriques Prometheus sur la route `/metrics` grace au package `prometheus-fastapi-instrumentator`.
+
+### Verification de la stack
+
+1. Verifier les cibles Prometheus : http://localhost:9090/targets (toutes doivent etre "UP")
+2. Acceder a Grafana : http://localhost:3000 (admin / admin par defaut)
+3. Les dashboards sont dans le dossier "HealthAI Coach"
+
 ## Tests
 
 Suite de tests backend:
@@ -394,14 +488,22 @@ Le repository ne contient pas actuellement de script de tests frontend dans pack
 - Verifier que les headers CSV correspondent a un schema supporte.
 - Verifier RabbitMQ et les credentials utilises dans RABBITMQ_URL.
 
-4) Conflits de ports (80, 8000, 5432, 5672, 15672)
+4) Conflits de ports (80, 8000, 5432, 5672, 15672, 3000, 8080, 9090)
 
 - Arreter les services locaux qui occupent ces ports ou changer les mappings dans docker-compose.yml.
+
+5) Grafana n'affiche pas de dashboards
+
+- Verifier que le volume `./monitoring/grafana/dashboards` est correctement monte.
+- Verifier que le fichier `monitoring/grafana/provisioning/dashboards/dashboard.yml` existe.
+- Redemarrer Grafana : `docker compose restart grafana`.
 
 ## Evolutions possibles
 
 - Ajouter des endpoints de healthcheck backend et ETL
 - Ajouter une strategie robuste d'injection d'env frontend au runtime
 - Ajouter une CI complete (lint/test/build) sur chaque microservice
-- Ajouter de l'observabilite (logs structures, metrics, traces)
+- ~~Ajouter de l'observabilite (logs structures, metrics, traces)~~ ✅ Stack Prometheus + Grafana deployee
+- Ajouter du tracing distribue (OpenTelemetry / Jaeger)
+- Ajouter des regles d'alerte Prometheus (AlertManager)
 - Ajouter des scripts de seed et datasets de demo pour onboarding rapide

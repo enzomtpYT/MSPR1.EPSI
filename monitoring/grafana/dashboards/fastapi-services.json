@@ -1,0 +1,115 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Services Up",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none", "colorMode": "background", "textMode": "auto" },
+      "targets": [
+        { "expr": "up{job=\"fastapi-backend\"}", "legendFormat": "Backend", "refId": "A" },
+        { "expr": "up{job=\"fastapi-ai\"}", "legendFormat": "AI Service", "refId": "B" },
+        { "expr": "up{job=\"postgres\"}", "legendFormat": "PostgreSQL", "refId": "C" },
+        { "expr": "up{job=\"mongodb\"}", "legendFormat": "MongoDB", "refId": "D" },
+        { "expr": "up{job=\"rabbitmq\"}", "legendFormat": "RabbitMQ", "refId": "E" },
+        { "expr": "up{job=\"cadvisor\"}", "legendFormat": "cAdvisor", "refId": "F" }
+      ]
+    },
+    {
+      "title": "HTTP Request Rate (Backend)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(http_requests_total{job=\"fastapi-backend\"}[5m])", "legendFormat": "{{method}} {{handler}} {{status}}", "refId": "A" }
+      ]
+    },
+    {
+      "title": "HTTP Request Rate (AI Microservice)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(http_requests_total{job=\"fastapi-ai\"}[5m])", "legendFormat": "{{method}} {{handler}} {{status}}", "refId": "A" }
+      ]
+    },
+    {
+      "title": "HTTP Request Duration P95 (Backend)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"fastapi-backend\"}[5m]))", "legendFormat": "p95 {{handler}}", "refId": "A" }
+      ]
+    },
+    {
+      "title": "HTTP Request Duration P95 (AI Microservice)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"fastapi-ai\"}[5m]))", "legendFormat": "p95 {{handler}}", "refId": "A" }
+      ]
+    },
+    {
+      "title": "HTTP Requests In Progress",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "http_requests_in_progress{job=\"fastapi-backend\"}", "legendFormat": "Backend - {{method}} {{handler}}", "refId": "A" },
+        { "expr": "http_requests_in_progress{job=\"fastapi-ai\"}", "legendFormat": "AI - {{method}} {{handler}}", "refId": "B" }
+      ]
+    },
+    {
+      "title": "HTTP Response Size (avg)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(http_response_size_bytes_sum{job=\"fastapi-backend\"}[5m]) / rate(http_response_size_bytes_count{job=\"fastapi-backend\"}[5m])", "legendFormat": "Backend avg", "refId": "A" },
+        { "expr": "rate(http_response_size_bytes_sum{job=\"fastapi-ai\"}[5m]) / rate(http_response_size_bytes_count{job=\"fastapi-ai\"}[5m])", "legendFormat": "AI avg", "refId": "B" }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["healthai", "fastapi"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "FastAPI Services",
+  "uid": "healthai-fastapi",
+  "version": 1
+}
