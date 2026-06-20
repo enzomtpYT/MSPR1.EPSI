@@ -9,11 +9,12 @@ Démarrage :
 from __future__ import annotations
 
 import logging
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 from src.config import settings
 from src.database import close_mongo_connection
@@ -26,6 +27,19 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s – %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# ──────────────────────── Prometheus metrics ───────────────────────────────
+
+REQUEST_COUNT = Counter(
+    "http_requests_total",
+    "Total HTTP requests",
+    ["method", "endpoint", "status"],
+)
+REQUEST_DURATION = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ["method", "endpoint"],
+)
 
 
 # ──────────────────────── Cycle de vie ─────────────────────────────────────
@@ -65,6 +79,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# ──────────────────────── Middleware Prometheus ─────────────────────────────
+
+@app.middleware("http")
+async def prometheus_middleware(request: Request, call_next):
+    if request.url.path == "/metrics":
+        return await call_next(request)
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration = time.perf_counter() - start
+    endpoint = request.url.path
+    REQUEST_COUNT.labels(request.method, endpoint, response.status_code).inc()
+    REQUEST_DURATION.labels(request.method, endpoint).observe(duration)
+    return response
+
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -79,4 +109,9 @@ app.include_router(health.router,    prefix="/api/v1",           tags=["Health"]
 app.include_router(nutrition.router, prefix="/api/v1/nutrition", tags=["Nutrition"])
 app.include_router(workout.router,   prefix="/api/v1/workout",   tags=["Workout"])
 
-Instrumentator().instrument(app).expose(app)
+
+@app.get("/metrics", include_in_schema=False)
+async def metrics():
+    """Expose Prometheus metrics."""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
