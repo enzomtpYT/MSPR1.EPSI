@@ -65,8 +65,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-Instrumentator().instrument(app).expose(app)
-
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -80,3 +78,5 @@ app.add_middleware(
 app.include_router(health.router,    prefix="/api/v1",           tags=["Health"])
 app.include_router(nutrition.router, prefix="/api/v1/nutrition", tags=["Nutrition"])
 app.include_router(workout.router,   prefix="/api/v1/workout",   tags=["Workout"])
+
+Instrumentator().instrument(app).expose(app)
