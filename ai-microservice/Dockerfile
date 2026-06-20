@@ -13,4 +13,4 @@ COPY . .
 
 EXPOSE 8001
 
-CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8001", "--proxy-headers", "--forwarded-allow-ips=*"]
