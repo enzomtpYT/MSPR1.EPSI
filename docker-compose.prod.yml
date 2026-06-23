@@ -64,8 +64,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_started
-    volumes:
-      - ./MSPR1.EPSI-FastAPI/src:/app/src
 
   # ETL Worker Microservice
   etl-worker:
