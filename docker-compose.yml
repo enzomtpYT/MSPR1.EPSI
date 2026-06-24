@@ -53,7 +53,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://admin:password@database:5432/etl_db}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@database:5432/${POSTGRES_DB:-etl_db}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://rabbit:rabbit_password@rabbitmq:5672/}
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this-in-production}
       ALGORITHM: ${ALGORITHM:-HS256}
@@ -77,7 +77,7 @@ services:
     container_name: mspr_etl_worker
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://admin:password@database:5432/etl_db}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@database:5432/${POSTGRES_DB:-etl_db}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://rabbit:rabbit_password@rabbitmq:5672/}
     depends_on:
       database:
