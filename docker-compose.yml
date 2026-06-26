@@ -68,6 +68,7 @@ services:
         condition: service_started
     volumes:
       - ./MSPR1.EPSI-FastAPI/src:/app/src
+      - backend_static:/app/static
 
   # ETL Worker Microservice
   etl-worker:
@@ -234,3 +235,5 @@ volumes:
     name: mspr_prometheus_data
   grafana_data:
     name: mspr_grafana_data
+  backend_static:
+    name: mspr_backend_static
